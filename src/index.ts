@@ -13,12 +13,8 @@ import {
 } from "./services/managePool";
 import connectToDatabase from "./utils/database";
 import { Pool } from "./models/pool";
-import {
-  type TokenAnalysis,
-  type SelectedToken,
-  type DexScreenerPairData,
-} from "./types/market";
-import { type PoolConfig, type LiquidityPosition } from "./types/pool";
+import { type JupiterTokenData } from "./types/market";
+import { type LiquidityPosition } from "./types/pool";
 
 config();
 
@@ -28,7 +24,7 @@ const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const REBALANCE_INTERVAL = 15 * 60 * 1000; // 15 minutes
 // const MAX_POOL_LIFESPAN = 3 * 24 * 60 * 60 * 1000; // 3 days
 const MAX_POOL_LIFESPAN = 20 * 60 * 1000; // 20 minutes
-const CAPITAL_ALLOCATION = new BN("10000000"); // 0.01 SOL in lamports
+const CAPITAL_ALLOCATION = new BN("30000000"); // 0.01 SOL in lamports
 
 interface DLMMPoolInfo {
   address: string;
@@ -79,7 +75,7 @@ async function monitorPosition(
       }
 
       // Fetch latest token data from Birdeye
-      const data: DexScreenerPairData = await getTokenData(poolTracker.address);
+      const data: JupiterTokenData = await getTokenData(poolTracker.address);
 
       // Calculate current volume to marketcap ratio
       const currentVolumeToMarketcap = data.volume.h1 / data.marketCap;
@@ -221,7 +217,7 @@ async function resumeExistingPool(
   }
 
   // Get initial volume to marketcap ratio from pool data
-  const data: DexScreenerPairData = await getTokenData(poolData.address);
+  const data: JupiterTokenData = await getTokenData(poolData.address);
 
   const initialVolumeToMarketcap =
     poolData.volumeToMarketcapAtEntry || data.volume.h1 / data.marketCap;

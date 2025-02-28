@@ -1,6 +1,35 @@
 export interface TrendingToken {
   address: string;
   rank: number;
+  symbol: string;
+  name: string;
+}
+
+export interface JupiterTokenData {
+  baseToken: {
+    address: string;
+    symbol: string;
+    name: string;
+  };
+  priceNative: string;
+  marketCap: number;
+  volume: {
+    h1: number;
+  };
+  liquidity: {
+    base: number;
+  };
+  priceChange: {
+    h1: number;
+  };
+  baseAsset?: {
+    stats1h?: {
+      buyOrganicVolume?: number;
+      sellOrganicVolume?: number;
+      numOrganicBuyers?: number;
+    };
+    organicScore?: number;
+  };
 }
 
 export interface TokenAnalysis {
@@ -13,6 +42,11 @@ export interface TokenAnalysis {
   volumeToMarketCap: number;
   volumeToLiquidity: number;
   priceChange1h: number;
+  // New Jupiter metrics
+  organicVolume1h?: number;
+  organicBuyerCount?: number;
+  organicScore?: number;
+  compositeScore?: number;
 }
 
 export interface SelectedToken {
@@ -22,74 +56,7 @@ export interface SelectedToken {
   entryPrice: number;
   entryTime: Date;
   volumeToMarketCapAtEntry: number;
+  compositeScoreAtEntry?: number;
   lastAnalyzed: Date;
   isActive: boolean;
 }
-
-export type DexScreenerTokenBoost = {
-  url: string;
-  chainId: string;
-  tokenAddress: string;
-  icon: string;
-  header: string;
-  openGraph: string;
-  description?: string;
-  links: {
-    type?: string;
-    label?: string;
-    url: string;
-  }[];
-  totalAmount: number;
-};
-
-export type DexScreenerPairData = {
-  chainId: string;
-  dexId: string;
-  url: string;
-  pairAddress: string;
-  baseToken: {
-    address: string;
-    name: string;
-    symbol: string;
-  };
-  quoteToken: {
-    address: string;
-    name: string;
-    symbol: string;
-  };
-  priceNative: string;
-  priceUsd: string;
-  txns: {
-    m5: { buys: number; sells: number };
-    h1: { buys: number; sells: number };
-    h6: { buys: number; sells: number };
-    h24: { buys: number; sells: number };
-  };
-  volume: {
-    h24: number;
-    h6: number;
-    h1: number;
-    m5: number;
-  };
-  priceChange: {
-    m5: number;
-    h1: number;
-    h6: number;
-    h24: number;
-  };
-  liquidity: {
-    usd: number;
-    base: number;
-    quote: number;
-  };
-  fdv: number;
-  marketCap: number;
-  pairCreatedAt: number;
-  info: {
-    imageUrl: string;
-    header: string;
-    openGraph: string;
-    websites?: Array<{ label: string; url: string }>;
-    socials?: Array<{ type: string; url: string }>;
-  };
-};
