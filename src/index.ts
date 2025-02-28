@@ -4,11 +4,7 @@ import { BN } from "@coral-xyz/anchor";
 import bs58 from "bs58";
 import { config } from "dotenv";
 import DLMM from "@meteora-ag/dlmm";
-import {
-  getTokenTradeData,
-  getTokenMarketData,
-  getBestTradingOpportunity,
-} from "./services/marketData";
+import { getTokenData, getBestTradingOpportunity } from "./services/marketData";
 import {
   getActiveBin,
   initializeDLMMPool,
@@ -17,7 +13,11 @@ import {
 } from "./services/managePool";
 import connectToDatabase from "./utils/database";
 import { Pool } from "./models/pool";
-import { type TokenAnalysis, type SelectedToken } from "./types/market";
+import {
+  type TokenAnalysis,
+  type SelectedToken,
+  type DexScreenerPairData,
+} from "./types/market";
 import { type PoolConfig, type LiquidityPosition } from "./types/pool";
 
 config();
@@ -27,7 +27,7 @@ const VOLUME_THRESHOLD = 0.15; // 15% of entry volume
 const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const REBALANCE_INTERVAL = 15 * 60 * 1000; // 15 minutes
 // const MAX_POOL_LIFESPAN = 3 * 24 * 60 * 60 * 1000; // 3 days
-const MAX_POOL_LIFESPAN = 20 * 60 * 1000;
+const MAX_POOL_LIFESPAN = 20 * 60 * 1000; // 20 minutes
 const CAPITAL_ALLOCATION = new BN("10000000"); // 0.01 SOL in lamports
 
 interface DLMMPoolInfo {
@@ -79,14 +79,10 @@ async function monitorPosition(
       }
 
       // Fetch latest token data from Birdeye
-      const [marketData, tradeData] = await Promise.all([
-        getTokenMarketData(poolTracker.tokenAddress),
-        getTokenTradeData(poolTracker.tokenAddress),
-      ]);
+      const data: DexScreenerPairData = await getTokenData(poolTracker.address);
 
       // Calculate current volume to marketcap ratio
-      const currentVolumeToMarketcap =
-        tradeData.volume_1h_usd / marketData.marketcap;
+      const currentVolumeToMarketcap = data.volume.h1 / data.marketCap;
       const volumeRatio = currentVolumeToMarketcap / initialVolumeToMarketcap;
       console.log(
         `Initial volume to marketcap ratio: ${initialVolumeToMarketcap}`
@@ -102,7 +98,7 @@ async function monitorPosition(
         { _id: poolTracker._id },
         {
           $set: {
-            currentPrice: marketData.price,
+            currentPrice: parseFloat(data.priceNative),
             lastUpdated: new Date(),
             currentVolumeToMarketcap,
             volumeRatio,
@@ -225,14 +221,10 @@ async function resumeExistingPool(
   }
 
   // Get initial volume to marketcap ratio from pool data
-  const [marketData, tradeData] = await Promise.all([
-    getTokenMarketData(poolData.tokenAddress),
-    getTokenTradeData(poolData.tokenAddress),
-  ]);
+  const data: DexScreenerPairData = await getTokenData(poolData.address);
 
   const initialVolumeToMarketcap =
-    poolData.volumeToMarketcapAtEntry ||
-    tradeData.volume_1h_usd / marketData.marketcap;
+    poolData.volumeToMarketcapAtEntry || data.volume.h1 / data.marketCap;
 
   // Resume monitoring
   await monitorPosition(
@@ -328,8 +320,8 @@ async function main() {
         createdAt: new Date(),
         status: "active",
         entryPrice: analysis.price,
-        volumeToMarketcapAtEntry: selectedToken.volumeToMarketcapAtEntry,
-        currentVolumeToMarketcap: selectedToken.volumeToMarketcapAtEntry,
+        volumeToMarketCapAtEntry: selectedToken.volumeToMarketCapAtEntry,
+        currentVolumeToMarketCap: selectedToken.volumeToMarketCapAtEntry,
         lastUpdated: new Date(),
       });
       await poolTracker.save();
@@ -341,7 +333,7 @@ async function main() {
         user,
         position,
         poolTracker,
-        selectedToken.volumeToMarketcapAtEntry
+        selectedToken.volumeToMarketCapAtEntry
       );
       console.log(`Monitoring position for ${selectedToken.symbol}`);
     }

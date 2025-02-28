@@ -16,13 +16,13 @@ const PoolSchema = new mongoose.Schema({
   initialTokenYAmount: { type: String, required: true },
 
   // Market Metrics
-  volumeToMarketcapAtEntry: { type: Number, required: true },
-  currentVolumeToMarketcap: { type: Number },
+  volumeToMarketCapAtEntry: { type: Number, required: true },
+  currentVolumeToMarketCap: { type: Number },
   volumeRatio: { type: Number },
   volumeHistory: [
     {
       timestamp: { type: Date, required: true },
-      volumeToMarketcap: { type: Number, required: true },
+      volumeToMarketCap: { type: Number, required: true },
       ratio: { type: Number, required: true },
     },
   ],

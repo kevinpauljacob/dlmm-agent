@@ -1,70 +1,66 @@
 import axios from "axios";
 import {
-  type TokenMarketData,
-  type TokenTradeData,
   type TrendingToken,
   type TokenAnalysis,
   type SelectedToken,
+  type DexScreenerPairData,
+  type DexScreenerTokenBoost,
 } from "../types/market";
-import { Token } from "../models/token";
 import connectToDatabase from "../utils/database";
 import { config } from "dotenv";
 config();
 
-const API_KEY =
-  process.env.BIRDEYE_API_KEY || "da0c0fc3a584493f94119e5b559c4a54";
-const BASE_URL = "https://public-api.birdeye.so";
-const TRENDING_TOKENS_LIMIT = 5;
+const BASE_URL = "https://api.dexscreener.com";
 
 const headers = {
   accept: "application/json",
-  "x-chain": "solana",
-  "X-API-KEY": API_KEY,
 };
 
-export async function getTrendingTokens(
-  limit: number
-): Promise<TrendingToken[]> {
+export async function getTrendingTokens(): Promise<TrendingToken[]> {
   try {
-    const response = await axios.get(
-      `${BASE_URL}/defi/token_trending?sort_by=rank&sort_type=asc&offset=0&limit=${limit}`,
+    const response = await axios.get<DexScreenerTokenBoost[]>(
+      `${BASE_URL}/token-boosts/top/v1`,
       { headers }
     );
-    return response.data.data.tokens;
+
+    if (!response.data || !Array.isArray(response.data)) {
+      throw new Error("Invalid response from DexScreener token boosts API");
+    }
+
+    return response.data
+      .filter((item) => item.chainId === "solana")
+      .map((item, index) => ({
+        address: item.tokenAddress,
+        rank: index,
+      }));
   } catch (error) {
     console.error("Error fetching trending tokens:", error);
     throw error;
   }
 }
 
-export async function getTokenMarketData(
-  address: string
-): Promise<TokenMarketData> {
+export async function getTokenData(address: string) {
+  console.log("Fetching data from DexScreener for", address);
   try {
-    console.log("Fetching market data for", address);
     const response = await axios.get(
-      `${BASE_URL}/defi/v3/token/market-data?address=${address}`,
+      `${BASE_URL}/tokens/v1/solana/${address}`,
       { headers }
     );
-    return response.data.data;
-  } catch (error) {
-    console.error(`Error fetching market data for ${address}:`, error);
-    throw error;
-  }
-}
 
-export async function getTokenTradeData(
-  address: string
-): Promise<TokenTradeData> {
-  console.log("Fetching trade data for", address);
-  try {
-    const response = await axios.get(
-      `${BASE_URL}/defi/v3/token/trade-data/single?address=${address}`,
-      { headers }
-    );
-    return response.data.data;
+    if (
+      !response.data ||
+      !Array.isArray(response.data) ||
+      response.data.length === 0
+    ) {
+      throw new Error(`No data found for token ${address}`);
+    }
+
+    return response.data[0];
   } catch (error) {
-    console.error(`Error fetching trade data for ${address}:`, error);
+    console.error(
+      `Error fetching data from DexScreener for ${address}:`,
+      error
+    );
     throw error;
   }
 }
@@ -77,37 +73,32 @@ export async function getBestTradingOpportunity(): Promise<{
     await connectToDatabase();
     // Get top 5 trending tokens
     console.log(`Get top 5 trending tokens`);
-    const trendingTokens = await getTrendingTokens(TRENDING_TOKENS_LIMIT);
+    const trendingTokens = await getTrendingTokens();
 
     // Analyze each token
     const analyses = await Promise.all(
       trendingTokens.map(async (token) => {
-        const [marketData, tradeData] = await Promise.all([
-          getTokenMarketData(token.address),
-          getTokenTradeData(token.address),
-        ]);
+        const data: DexScreenerPairData = await getTokenData(token.address);
 
-        const volumeToMarketcap =
-          tradeData.volume_1h_usd / marketData.marketcap;
-        const volumeToLiquidity =
-          tradeData.volume_1h_usd / marketData.liquidity;
+        const volumeToMarketCap = data.volume.h1 / data.marketCap;
+        const volumeToLiquidity = data.volume.h1 / data.liquidity.base;
 
         return {
-          address: token.address,
-          symbol: token.symbol,
-          name: token.name,
-          price: marketData.price,
-          marketcap: marketData.marketcap,
-          volume1h: tradeData.volume_1h_usd,
-          volumeToMarketcap,
+          address: data.baseToken.address,
+          symbol: data.baseToken.symbol,
+          name: data.baseToken.name,
+          price: parseFloat(data.priceNative),
+          marketCap: data.marketCap,
+          volume1h: data.volume.h1,
+          volumeToMarketCap,
           volumeToLiquidity,
-          priceChange1h: tradeData.price_change_1h_percent,
+          priceChange1h: data.priceChange.h1,
         };
       })
     );
 
     // Sort by volumeToMarketcap ratio
-    analyses.sort((a, b) => b.volumeToMarketcap - a.volumeToMarketcap);
+    analyses.sort((a, b) => b.volumeToMarketCap - a.volumeToMarketCap);
 
     const bestAnalysis = analyses[0];
     if (!bestAnalysis) return null;
@@ -118,7 +109,7 @@ export async function getBestTradingOpportunity(): Promise<{
       name: bestAnalysis.name,
       entryPrice: bestAnalysis.price,
       entryTime: new Date(),
-      volumeToMarketcapAtEntry: bestAnalysis.volumeToMarketcap,
+      volumeToMarketCapAtEntry: bestAnalysis.volumeToMarketCap,
       lastAnalyzed: new Date(),
       isActive: true,
     };

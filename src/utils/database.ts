@@ -5,7 +5,7 @@ declare global {
 
 const MONGODB_URI =
   process.env.DB_URI! ||
-  "mongodb+srv://projectx:3ZOeS7H1Q49kUp1v@dc-production.6vh8y.mongodb.net/projectx?retryWrites=true";
+  "mongodb+srv://dev:2ZE4MRqb86LvK4ey@cluster0.8nvdr.mongodb.net/dlmm-agent?retryWrites=true&w=majority&appName=Cluster0";
 
 if (!MONGODB_URI) {
   throw new Error(
